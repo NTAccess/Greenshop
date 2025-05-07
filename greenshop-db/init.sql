@@ -19,6 +19,8 @@
 --
 -- Table structure for table `products`
 --
+CREATE DATABASE IF NOT EXISTS greenshop;
+USE greenshop;
 
 DROP TABLE IF EXISTS `products`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
