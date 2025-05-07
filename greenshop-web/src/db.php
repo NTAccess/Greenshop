@@ -1,8 +1,8 @@
 <?php
-$host = 'localhost';
+$host = 'GreenshopDB';
 $dbname = 'greenshop';
-$username = 'greenshop_user';
-$password = 'your_secure_password';
+$username = 'root';
+$password = 'root';
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
