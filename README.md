@@ -69,3 +69,49 @@ L’infrastructure est divisée en 3 parties principales :
    ```bash
    export AWS_ACCESS_KEY_ID=...
    export AWS_SECRET_ACCESS_KEY=...
+   
+2. **Terraform - Création de l’infra** :
+
+   ```bash
+   cd greenshop-terraform
+   terraform init
+   terraform apply
+   
+3. **Ansible - Configuration automatique** :
+
+   ```bash
+   cd greenshop-ansible
+   ansible-playbook setup.yml -i inventory.ini
+
+4. **Jenkins** :
+
+    Accéder à Jenkins via l’IP publique du serveur Jenkins sur le port 8080
+
+    Configurer un pipeline de type freestyle ou pipeline as code
+
+    Webhook GitHub pour déclencher automatiquement les builds
+
+📎 Notes complémentaires
+
+    L’application PHP utilisée est un site de vente fictif : Greenshop
+
+    Le init.sql est automatiquement récupéré depuis GitHub
+
+    L’architecture permet un déploiement rapide en cas de mise à jour via Jenkins
+
+👨‍🎓 Projet pédagogique
+
+Ce projet a été réalisé dans un cadre étudiant dans le but de :
+
+    Mettre en pratique l’IaC avec AWS
+
+    Concevoir une infrastructure modulaire et automatisée
+
+    Implémenter un pipeline CI/CD opérationnel
+
+    Possibilité de basculer la base de données vers un conteneur Docker si besoin
+
+📧 Auteur
+
+Berzylyss
+GitHub: https://github.com/Berzylyss
