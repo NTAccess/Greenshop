@@ -215,7 +215,7 @@ resource "aws_instance" "VM-bastion" {
               EOF
 
   tags = {
-    Name = "greenshop-Bastion-Host"
+    Name = "greenshop-Bastion"
   }
 }
 
@@ -229,7 +229,7 @@ resource "aws_instance" "VM_Loadbalancer" {
   vpc_security_group_ids = [aws_security_group.bastion_sg.id]
 
   tags = {
-    Name = "greenshop-web-Loadbalancer"
+    Name = "greenshop-Loadbalancer"
   }
 }
 
@@ -254,14 +254,14 @@ resource "aws_instance" "docker_vm_web" {
               EOF
 
   tags = {
-    Name = "greenshop-Docker-VM-web-${count.index}"
+    Name = "servweb-${count.index+1}"
   }
 }
 
 resource "aws_instance" "VM_mariaDB" {
   ami           = "ami-0f9de6e2d2f067fca"
   instance_type = "t3.micro"
-  subnet_id     = aws_subnet.private_app.id
+  subnet_id     = aws_subnet.private_db.id
   private_ip    = "192.168.20.14"
   key_name      = aws_key_pair.admin_key.key_name
 
@@ -274,6 +274,6 @@ resource "aws_instance" "VM_mariaDB" {
               EOF
 
   tags = {
-    Name = "greenshop-VM-mariaDB"
+    Name = "greenshop-mariaDB"
   }
 }
