@@ -10,6 +10,10 @@ resource "tls_private_key" "bastion" {
 resource "aws_key_pair" "bastion_key" {
   key_name   = "Bastion-key"
   public_key = tls_private_key.bastion.public_key_openssh
+
+  provisioner "local-exec" {
+    command = "echo '${tls_private_key.bastion.private_key_pem}' > ./Bastion-key.pem"
+  }
 }
 
 resource "tls_private_key" "admin" {
