@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         IMAGE_NAME = "berzylyss/greenshopweb"
-        DOCKER_CREDENTIALS_ID = 'dockerhub'
+        DOCKER_CREDENTIALS_ID = 'dockerhub'  // Utilisation de votre secret Docker Hub
         GIT_REPO_URL = 'https://github.com/Berzylyss/Greenshop.git'
         GIT_BRANCH = 'main'
         GIT_FOLDER = 'greenshop-web'
@@ -11,6 +11,7 @@ pipeline {
     }
 
     stages {
+        // 1. Checkout du code GitHub avec sparse-checkout pour récupérer uniquement le dossier greenshop-web
         stage('Checkout') {
             steps {
                 script {
@@ -26,6 +27,7 @@ pipeline {
             }
         }
 
+        // 2. Construction de l'image Docker à partir du Dockerfile dans greenshop-web
         stage('Build Docker Image') {
             steps {
                 dir('greenshop-web') {  
@@ -37,6 +39,7 @@ pipeline {
             }
         }
 
+        // 3. Push de l'image Docker vers Docker Hub
         stage('Push to Docker Hub') {
             steps {
                 withDockerRegistry(credentialsId: "${DOCKER_CREDENTIALS_ID}", url: '') {
@@ -48,13 +51,15 @@ pipeline {
             }
         }
 
+        // 4. Déploiement sur les serveurs
         stage('Deploy to Servers') {
             steps {
                 script {
                     echo "Déploiement de la nouvelle image sur les serveurs..."
 
+                    // Déploiement sur chaque serveur
                     SERVERS.each { server ->
-                        sshagent(['web-ssh']) {
+                        sshagent(['web-ssh']) {  // Assurez-vous que web-ssh est bien configuré avec vos credentials SSH
                             sh """
                             ssh -o StrictHostKeyChecking=no ubuntu@${server} '
                                 echo "Suppression du conteneur existant et de l'ancienne image..."
@@ -68,7 +73,7 @@ pipeline {
                                 # Tirer la nouvelle image depuis Docker Hub
                                 docker pull ${IMAGE_NAME}:latest
 
-                                # Exécution du nouveau conteneur avec la nouvelle image
+                                # Exécution du nouveau conteneur avec la nouvelle image, exposé sur le port 80
                                 docker run -d --name greenshopweb -p 80:80 ${IMAGE_NAME}:latest
                             '
                             """
