@@ -74,6 +74,20 @@
           - containerd.io
         state: latest
 
+        - name: Télécharger l’image Docker depuis Docker Hub
+      docker_image:
+        name: berzylyss/greenshopweb
+        source: pull
+
+    - name: Démarrer le conteneur Docker
+      docker_container:
+        name: mon_conteneur
+        image: berzylyss/greenshopweb
+        state: started
+        restart_policy: always
+        ports:
+          - "8080:80"  # Expose le port 80 du conteneur sur le port 8080 de l’hôte
+
     - name: S'assurer que Docker est démarré
       ansible.builtin.service:
         name: docker
@@ -122,6 +136,20 @@
         login_user: root
         login_password: "{{ mariadb_root_password }}"
 
+    - name: Télécharger le fichier init.sql depuis GitHub
+      get_url:
+        url: "https://raw.githubusercontent.com/Berzylyss/Greenshop/main/greenshop-db/init.sql"
+        dest: "/tmp/init.sql"
+        mode: '0644'
+
+    - name: Importer le fichier init.sql dans la base de données
+      mysql_db:
+        name: "{{ mariadb_database }}"
+        state: import
+        target: /tmp/init.sql
+        login_user: root
+        login_password: "{{ mariadb_root_password }}"
+
     - name: Supprimer la base de test
       mysql_db:
         name: test
@@ -129,12 +157,7 @@
         login_user: root
         login_password: "{{ mariadb_root_password }}"
 
-    - name: Créer la base de données
-      mysql_db:
-        name: "{{ mariadb_database }}"
-        state: present
-        login_user: root
-        login_password: "{{ mariadb_root_password }}"
+    
 
 # il accorde les droits à user
     - name: Créer l'utilisateur et lui accorder les droits
