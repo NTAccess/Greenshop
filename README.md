@@ -66,24 +66,26 @@ L’infrastructure est divisée en 3 parties principales :
 ## 🚀 Déploiement
 
 1. **Configurer les credentials AWS** :
+   Attention à bien modifié l'adresse IP public dans cidr_blocks pour accepter la votre.
+   
    ```bash
    export AWS_ACCESS_KEY_ID=...
    export AWS_SECRET_ACCESS_KEY=...
    
-2. **Terraform - Création de l’infra** :
+3. **Terraform - Création de l’infra** :
 
    ```bash
    cd greenshop-terraform
    terraform init
    terraform apply
    
-3. **Ansible - Configuration automatique** :
+4. **Ansible - Configuration automatique** :
 
    ```bash
    cd greenshop-ansible
    ansible-playbook setup.yml -i inventory.ini
 
-4. **Jenkins** :
+5. **Jenkins** :
 
     Accéder à Jenkins via l’IP publique du serveur Jenkins sur le port 8080
 
