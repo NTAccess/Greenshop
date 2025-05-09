@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  greenshopweb:
+    image: greenshop-web
+    container_name: Greenshopweb
+    environment:
+      DB_HOST: 192.168.10.20
+      DB_USER: root
+      DB_PASSWORD: root
+    ports:
+      - "8080:8080"
+    networks:
+      - greenshop-network
+
+networks:
+  greenshop-network:
+    external: true
