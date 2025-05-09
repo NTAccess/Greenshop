@@ -2,60 +2,46 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "berzylyss/greenshop"
-        DOCKER_TAG = "latest"
-        DOCKER_CREDENTIALS_ID = "dockerhub-creds"
-        SSH_KEY_ID = "vm-ssh-key"
-    }
-
-    triggers {
-        pollSCM('* * * * *') // ou use GitHub Webhooks
+        IMAGE_NAME = "berzylyss/greenshopweb"
+        DOCKER_CREDENTIALS_ID = 'dockerhub'  
+        GIT_REPO_URL = 'https://github.com/Berzylyss/Greenshop.git'
+        GIT_BRANCH = 'main'
+        GIT_FOLDER = 'greenshop-web'  
     }
 
     stages {
-        stage('Check changed folders') {
-            when {
-                changeset "**/greenshop-web/**"
-            }
+        stage('Checkout') {
             steps {
-                echo "greenshop-web changed, continuing pipeline..."
+                script {
+                    echo "Clonage du repository GitHub avec sparse-checkout pour le dossier ${GIT_FOLDER}..."
+                    sh """
+                    git init
+                    git remote add origin ${GIT_REPO_URL}
+                    git config core.sparseCheckout true
+                    echo "${GIT_FOLDER}/" > .git/info/sparse-checkout
+                    git pull origin ${GIT_BRANCH}
+                    """
+                }
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    docker.build("${DOCKER_IMAGE}:${DOCKER_TAG}")
+                dir('greenshop-web') {  
+                    script {
+                        echo "Construction de l'image Docker..."
+                        docker.build("${IMAGE_NAME}:latest")
+                    }
                 }
             }
         }
 
         stage('Push to Docker Hub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: "${DOCKER_CREDENTIALS_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                withDockerRegistry(credentialsId: "${DOCKER_CREDENTIALS_ID}", url: '') {
                     script {
-                        sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
-                        sh "docker push ${DOCKER_IMAGE}:${DOCKER_TAG}"
-                    }
-                }
-            }
-        }
-
-        stage('Deploy to VMs') {
-            steps {
-                sshagent(credentials: ["${SSH_KEY_ID}"]) {
-                    script {
-                        def servers = ["user@vm1", "user@vm2", "user@vm3"]
-                        for (server in servers) {
-                            sh """
-                            ssh -o StrictHostKeyChecking=no ${server} '
-                                docker pull ${DOCKER_IMAGE}:${DOCKER_TAG} &&
-                                docker stop greenshopweb|| true &&
-                                docker rm greenshopweb || true &&
-                                docker run -d --name greenshopweb -p 80:80 ${DOCKER_IMAGE}:${DOCKER_TAG}
-                            '
-                            """
-                        }
+                        echo "Push de l'image Docker vers Docker Hub..."
+                        docker.image("${IMAGE_NAME}:latest").push()
                     }
                 }
             }
