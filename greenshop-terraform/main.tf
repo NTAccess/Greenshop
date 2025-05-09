@@ -121,6 +121,13 @@ resource "aws_security_group" "bastion_sg" {
     cidr_blocks = ["18.208.180.42/32", "77.132.122.218/32", "92.161.164.161/32"]
   }
 
+  ingress {
+    from_port   = -1
+    to_port     = -1
+    protocol    = "icmp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -137,6 +144,20 @@ resource "aws_security_group" "web_sg" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = -1
+    to_port     = -1
+    protocol    = "icmp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -164,6 +185,20 @@ resource "aws_security_group" "db_sg" {
     to_port         = 3306
     protocol        = "tcp"
     security_groups = [aws_security_group.web_sg.id]
+  }
+  
+  ingress {
+    from_port   = -1
+    to_port     = -1
+    protocol    = "icmp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -209,8 +244,8 @@ resource "aws_instance" "VM-bastion" {
               #!/bin/bash
               apt-get update -y && apt-get upgrade -y
               apt-get install -y ansible
-              echo '${tls_private_key.admin.private_key_pem}' > /home/ubuntu/Admin.key.pem
-              chmod 600 /home/ubuntu/Admin.key.pem
+              echo '${tls_private_key.admin.private_key_pem}' > /home/ubuntu/Admin-key.pem
+              chmod 600 /home/ubuntu/Admin-key.pem
               reboot
               EOF
 
