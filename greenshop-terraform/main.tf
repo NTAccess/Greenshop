@@ -258,7 +258,7 @@ resource "aws_instance" "VM_Loadbalancer" {
   ami           = "ami-0f9de6e2d2f067fca"
   instance_type = "t3.micro"
   subnet_id     = aws_subnet.public.id
-  private_ip    = "192.168.1.20"
+  private_ip    = "192.168.10.10"
   key_name      = aws_key_pair.admin_key.key_name
 
   vpc_security_group_ids = [aws_security_group.bastion_sg.id]
