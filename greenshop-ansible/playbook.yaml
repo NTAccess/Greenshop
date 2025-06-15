@@ -2,7 +2,7 @@
 ---
 
 - name: Installer et configurer HAProxy
-  hosts: loadbalancer
+  hosts: VM_Loadbalancer 
   become: true
 
   vars:
@@ -41,7 +41,7 @@
 
 ########################################Installation de Docker sur les serveurs#########################################
 - name: Installer Docker sur les serveurs
-  hosts: docker_servers
+  hosts: docker_vm_web
   become: true
   tasks:
     - name: Mettre à jour la liste des paquets
@@ -74,10 +74,12 @@
           - containerd.io
         state: latest
 
-        - name: Télécharger l’image Docker depuis Docker Hub
-      docker_image:
+    - name: Télécharger l’image Docker depuis Docker Hub
+      community.docker.docker_image:
         name: berzylyss/greenshopweb
         source: pull
+
+
 
     - name: Démarrer le conteneur Docker
       docker_container:
@@ -95,35 +97,35 @@
 
 ###################################Installation de MariaDB###########################################
 
-- name: Installer MariaDB sur un serveur dédié
-  hosts: dbservers
+- name: Installer SQL sur un serveur dédié
+  hosts: docker_vm_SQL
   become: true
 
   vars_files:
     - secrets.yaml
 
   vars:
-    mariadb_database: "greenshop"
-    mariadb_user: "usergreen"
+    mysql_database: "greenshop"
+    mysql_user: "usergreen"
 
   tasks:
-    - name: Installer MariaDB server
+    - name: Installer MySQL server
       apt:
-        name: mariadb-server
+        name: mysql-server
         state: present
         update_cache: yes
 
-    - name: Démarrer et activer le service MariaDB
+    - name: Démarrer et activer le service MySQL
       service:
-        name: mariadb
+        name: mysql
         state: started
         enabled: true
 
-    - name: Sécuriser l'installation de MariaDB (définir mot de passe root)
+    - name: Sécuriser l'installation de MySQL (définir mot de passe root)
       mysql_user:
         name: root
         host: localhost
-        password: "{{ mariadb_root_password }}"
+        password: "{{ mysql_root_password }}"
         check_implicit_admin: true
         login_unix_socket: /var/run/mysqld/mysqld.sock
       ignore_errors: yes  # ignore si déjà défini
@@ -134,7 +136,7 @@
         host_all: true
         state: absent
         login_user: root
-        login_password: "{{ mariadb_root_password }}"
+        login_password: "{{ mysql_root_password }}"
 
     - name: Télécharger le fichier init.sql depuis GitHub
       get_url:
@@ -144,39 +146,39 @@
 
     - name: Importer le fichier init.sql dans la base de données
       mysql_db:
-        name: "{{ mariadb_database }}"
+        name: "{{ mysql_database }}"
         state: import
         target: /tmp/init.sql
         login_user: root
-        login_password: "{{ mariadb_root_password }}"
+        login_password: "{{ mysql_root_password }}"
 
     - name: Supprimer la base de test
       mysql_db:
         name: test
         state: absent
         login_user: root
-        login_password: "{{ mariadb_root_password }}"
+        login_password: "{{ mysql_root_password }}"
 
     
 
 # il accorde les droits à user
     - name: Créer l'utilisateur et lui accorder les droits
       mysql_user:
-        name: "{{ mariadb_user }}"
-        password: "{{ mariadb_user_password }}"
-        priv: "{{ mariadb_database }}.*:ALL"
+        name: "{{ mysql_user }}"
+        password: "{{ mysql_user_password }}"
+        priv: "{{ mysql_database }}.*:ALL"
         host: "%"
         state: present
         login_user: root
-        login_password: "{{ mariadb_root_password }}"
+        login_password: "{{ mysql_root_password }}"
 
     - name: Modifier bind-address pour autoriser connexions externes
       lineinfile:
-        path: /etc/mysql/mariadb.conf.d/50-server.cnf
+        path: /etc/mysql/mysql.conf.d/50-server.cnf
         regexp: '^bind-address'
         line: 'bind-address = 0.0.0.0'
         backup: yes
-      notify: Redémarrer MariaDB
+      notify: Redémarrer MySQL
 
     - name: Ouvrir le port 3306 dans le firewall (UFW)
       ufw:
@@ -186,7 +188,7 @@
       when: ansible_facts.os_family == 'Ubuntu'
 
   handlers:
-    - name: Redémarrer MariaDB
+    - name: Redémarrer MySQL
       service:
-        name: mariadb
+        name: mysql
         state: restarted
