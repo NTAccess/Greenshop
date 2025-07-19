@@ -21,15 +21,14 @@ resource "aws_instance" "VM-bastion" {
 }
 
 resource "aws_instance" "VM_Loadbalancer" {
-  ami           = "ami-0f9de6e2d2f070fca"
+  ami           = "ami-02029c87fa31fb148"
   instance_type = "t3.micro"
   subnet_id     = aws_subnet.public.id
   private_ip    = "192.168.10.10"
   key_name      = aws_key_pair.admin_key.key_name
 
   vpc_security_group_ids = [
-    aws_security_group.internal_ssh_sg.id,
-    aws_security_group.web_sg.id
+    aws_security_group.bastion_sg.id
   ]
 
   tags = {
