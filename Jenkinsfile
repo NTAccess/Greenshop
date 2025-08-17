@@ -6,7 +6,7 @@ pipeline {
         DOCKER_CREDENTIALS_ID = 'dockerhub'
         GIT_REPO_URL = 'https://github.com/Berzylyss/Greenshop.git'
         GIT_BRANCH = 'main'
-        GIT_WEB_FOLDER = 'greenshop-web'
+        WEB_FOLDER = 'greenshop-web'
     }
 
     stages {
@@ -44,14 +44,17 @@ pipeline {
             }
         }
 
-        stage('Deploy Web Container') {
+        stage('Update Running Web Container') {
             steps {
                 script {
-                    echo "Déploiement du conteneur web..."
+                    echo "Mise à jour du conteneur web existant..."
                     sh """
                     docker rm -f greenshop-web || true
-                    docker pull ${IMAGE_NAME}:latest
-                    docker run -d --name greenshop-web --network greenshop-net -p 80:80 ${IMAGE_NAME}:latest
+                    docker run -d \
+                      --name greenshop-web \
+                      --network greenshop-net \
+                      -p 80:80 \
+                      ${IMAGE_NAME}:latest
                     """
                 }
             }
