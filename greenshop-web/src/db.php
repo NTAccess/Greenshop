@@ -1,5 +1,5 @@
 <?php
-$host = 'db'; 
+$host = 'greenshop-db'; 
 $dbname = 'greenshop';
 $username = 'greenshopuser';
 $password = 'greenshopdb';
