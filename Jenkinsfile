@@ -1,120 +1,95 @@
+
 pipeline {
     agent any
 
     environment {
-        DOCKER_CREDENTIALS_ID = 'dockerhub'       // Credentials Docker Hub
         GIT_REPO_URL = 'https://github.com/Berzylyss/Greenshop.git'
         GIT_BRANCH = 'main'
-        GIT_WEB_FOLDER = 'greenshop-web'
-        GIT_DB_FOLDER = 'greenshop-db'
-
-        // Variables depuis .env
-        MYSQL_ROOT_PASSWORD = "greenshoproot"
-        MYSQL_DATABASE = "greenshop"
-        MYSQL_USER = "greenshopuser"
-        MYSQL_PASSWORD = "greenshopdb"
-        WEB_IMAGE = "berzylyss/greenshop-web"
-        WEB_IMAGE_TAG = "latest"
-        DB_IMAGE = "mariadb:latest"
+        WEB_FOLDER = 'greenshop-web'
+        IMAGE_NAME = 'berzylyss/greenshop-web'
+        WEB_CONTAINER_NAME = 'greenshop-web'
+        DB_CONTAINER_NAME = 'greenshop-db'
+        DB_IMAGE = 'mariadb:latest'
+        DB_PORT = '3306'
+        WEB_PORT = '80'
     }
 
     stages {
 
         stage('Checkout Web Code') {
             steps {
-                sh """
-                rm -rf web-tmp
-                git clone --branch ${GIT_BRANCH} --depth 1 ${GIT_REPO_URL} web-tmp
-                """
-            }
-        }
-
-        stage('Checkout DB Scripts') {
-            steps {
-                sh """
-                rm -rf db-tmp
-                git clone --branch ${GIT_BRANCH} --depth 1 ${GIT_REPO_URL} db-tmp
-                """
-            }
-        }
-
-        stage('Check for Changes') {
-            steps {
                 script {
-                    def changed = sh(
-                        script: "cd web-tmp && git rev-parse HEAD",
-                        returnStdout: true
-                    ).trim()
-
-                    if (fileExists("last_commit.txt")) {
-                        def lastCommit = readFile("last_commit.txt").trim()
-                        if (lastCommit == changed) {
-                            echo "Pas de changement dans le code. Skip build."
-                            currentBuild.result = 'SUCCESS'
-                            return
-                        }
-                    }
-
-                    writeFile file: "last_commit.txt", text: changed
-                    env.CODE_CHANGED = "true"
+                    echo "Clonage du dossier ${WEB_FOLDER} depuis GitHub..."
+                    sh """
+                    rm -rf web-tmp
+                    git clone --branch ${GIT_BRANCH} --single-branch ${GIT_REPO_URL} web-tmp
+                    """
                 }
             }
         }
 
-        stage('Build and Push Docker Image') {
-            when {
-                expression { env.CODE_CHANGED == "true" }
-            }
+        stage('Build Docker Image') {
             steps {
                 dir('web-tmp/greenshop-web') {
                     script {
-                        echo "Construction de l'image Docker..."
-                        def image = docker.build("${WEB_IMAGE}:${WEB_IMAGE_TAG}")
-
-                        echo "Push de l'image Docker vers Docker Hub..."
-                        withDockerRegistry(credentialsId: "${DOCKER_CREDENTIALS_ID}", url: '') {
-                            image.push()
-                        }
+                        echo "Construction de l'image Docker du web..."
+                        docker.build("${IMAGE_NAME}:latest")
                     }
                 }
             }
         }
 
-        stage('Run Docker Containers Locally') {
+        stage('Stop Existing Web Container') {
             steps {
                 script {
-                    echo "Lancement des conteneurs Docker en local..."
-
-                    // MariaDB
+                    echo "Arrêt du conteneur web existant s'il existe..."
                     sh """
-                    docker rm -f greenshop-db || true
-                    docker run -d --name greenshop-db \\
-                        -e MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD} \\
-                        -e MYSQL_DATABASE=${MYSQL_DATABASE} \\
-                        -e MYSQL_USER=${MYSQL_USER} \\
-                        -e MYSQL_PASSWORD=${MYSQL_PASSWORD} \\
-                        -p 3306:3306 ${DB_IMAGE}
-                    """
-
-                    // Web
-                    sh """
-                    docker rm -f greenshop-web || true
-                    docker pull ${WEB_IMAGE}:${WEB_IMAGE_TAG}
-                    docker run -d --name greenshop-web -p 8080:80 ${WEB_IMAGE}:${WEB_IMAGE_TAG}
+                    if [ \$(docker ps -q -f name=${WEB_CONTAINER_NAME}) ]; then
+                        docker stop ${WEB_CONTAINER_NAME}
+                        docker rm ${WEB_CONTAINER_NAME}
+                    fi
                     """
                 }
             }
         }
 
-        stage('Initialize Database') {
+        stage('Start Web Container') {
             steps {
                 script {
-                    echo "Initialisation de la base MariaDB..."
+                    echo "Démarrage du nouveau conteneur web..."
                     sh """
-                    cat db-tmp/greenshop-db/init.sql | docker exec -i greenshop-db mysql -u${MYSQL_USER} -p${MYSQL_PASSWORD} ${MYSQL_DATABASE}
+                    docker run -d --name ${WEB_CONTAINER_NAME} -p ${WEB_PORT}:80 ${IMAGE_NAME}:latest
                     """
                 }
             }
+        }
+
+        stage('Ensure DB Container Running') {
+            steps {
+                script {
+                    echo "Vérification du conteneur DB..."
+                    sh """
+                    if [ -z \$(docker ps -q -f name=${DB_CONTAINER_NAME}) ]; then
+                        docker run -d --name ${DB_CONTAINER_NAME} -p ${DB_PORT}:3306 \\
+                            -e MYSQL_ROOT_PASSWORD=greenshoproot \\
+                            -e MYSQL_DATABASE=greenshop \\
+                            -e MYSQL_USER=greenshopuser \\
+                            -e MYSQL_PASSWORD=greenshopdb \\
+                            ${DB_IMAGE}
+                    fi
+                    """
+                }
+            }
+        }
+
+    }
+
+    post {
+        success {
+            echo "Déploiement terminé avec succès !"
+        }
+        failure {
+            echo "Le déploiement a échoué."
         }
     }
 }
