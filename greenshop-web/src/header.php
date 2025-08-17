@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>greenShop - Organic Fruits & Veggies</title>
+    <title>Test jenkins pour Greenshop =]</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
