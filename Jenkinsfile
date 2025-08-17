@@ -1,17 +1,18 @@
-
 pipeline {
     agent any
 
     environment {
+        IMAGE_NAME = "berzylyss/greenshop-web"
+        DOCKER_CREDENTIALS_ID = 'dockerhub'       // Credentials Docker Hub
         GIT_REPO_URL = 'https://github.com/Berzylyss/Greenshop.git'
         GIT_BRANCH = 'main'
         WEB_FOLDER = 'greenshop-web'
-        IMAGE_NAME = 'berzylyss/greenshop-web'
-        WEB_CONTAINER_NAME = 'greenshop-web'
-        DB_CONTAINER_NAME = 'greenshop-db'
-        DB_IMAGE = 'mariadb:latest'
-        DB_PORT = '3306'
-        WEB_PORT = '80'
+        DB_FOLDER = 'greenshop-db'
+        DB_ROOT_PASS = 'greenshoproot'
+        DB_NAME = 'greenshop'
+        DB_USER = 'greenshopuser'
+        DB_PASS = 'greenshopdb'
+        NETWORK_NAME = 'greenshop-net'
     }
 
     stages {
@@ -32,65 +33,64 @@ pipeline {
             steps {
                 dir('web-tmp/greenshop-web') {
                     script {
-                        echo "Construction de l'image Docker du web..."
+                        echo "Construction de l'image Docker..."
                         docker.build("${IMAGE_NAME}:latest")
                     }
                 }
             }
         }
 
-        stage('Stop Existing Web Container') {
+        stage('Push to Docker Hub') {
             steps {
-                script {
-                    echo "Arrêt du conteneur web existant s'il existe..."
-                    sh """
-                    if [ \$(docker ps -q -f name=${WEB_CONTAINER_NAME}) ]; then
-                        docker stop ${WEB_CONTAINER_NAME}
-                        docker rm ${WEB_CONTAINER_NAME}
-                    fi
-                    """
+                withDockerRegistry(credentialsId: "${DOCKER_CREDENTIALS_ID}", url: '') {
+                    script {
+                        echo "Push de l'image Docker vers Docker Hub..."
+                        docker.image("${IMAGE_NAME}:latest").push()
+                    }
                 }
             }
         }
-        
-        stage('Start Web Container') {
+
+        stage('Deploy Containers Locally') {
             steps {
                 script {
-                    echo "Arrêt et suppression du conteneur web existant..."
+                    echo "Création du réseau Docker si inexistant..."
+                    sh """
+                    docker network inspect ${NETWORK_NAME} >/dev/null 2>&1 || docker network create ${NETWORK_NAME}
+                    """
+
+                    echo "Déploiement de la base de données..."
+                    sh """
+                    docker rm -f greenshop-db || true
+                    docker run -d --name greenshop-db --network ${NETWORK_NAME} \
+                        -e MYSQL_ROOT_PASSWORD=${DB_ROOT_PASS} \
+                        -e MYSQL_DATABASE=${DB_NAME} \
+                        -e MYSQL_USER=${DB_USER} \
+                        -e MYSQL_PASSWORD=${DB_PASS} \
+                        mariadb:latest
+                    """
+
+                    echo "Déploiement du site web..."
                     sh """
                     docker rm -f greenshop-web || true
-                    docker run -d --name greenshop-web -p 80:80 berzylyss/greenshop-web:latest
+                    docker run -d --name greenshop-web --network ${NETWORK_NAME} -p 80:80 \
+                        -e DB_HOST=greenshop-db \
+                        -e DB_DATABASE=${DB_NAME} \
+                        -e DB_USERNAME=${DB_USER} \
+                        -e DB_PASSWORD=${DB_PASS} \
+                        ${IMAGE_NAME}:latest
                     """
                 }
             }
         }
-
-        stage('Ensure DB Container Running') {
-            steps {
-                script {
-                    echo "Vérification du conteneur DB..."
-                    sh """
-                    if [ -z \$(docker ps -q -f name=${DB_CONTAINER_NAME}) ]; then
-                        docker run -d --name ${DB_CONTAINER_NAME} -p ${DB_PORT}:3306 \\
-                            -e MYSQL_ROOT_PASSWORD=greenshoproot \\
-                            -e MYSQL_DATABASE=greenshop \\
-                            -e MYSQL_USER=greenshopuser \\
-                            -e MYSQL_PASSWORD=greenshopdb \\
-                            ${DB_IMAGE}
-                    fi
-                    """
-                }
-            }
-        }
-
     }
 
     post {
         success {
-            echo "Déploiement terminé avec succès !"
+            echo 'Déploiement terminé avec succès !'
         }
         failure {
-            echo "Le déploiement a échoué."
+            echo 'Le déploiement a échoué.'
         }
     }
 }
