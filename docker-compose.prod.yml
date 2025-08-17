@@ -2,6 +2,7 @@ services:
   db:
     image: mariadb:10.6
     restart: always
+    container_name: greenshop-db
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
@@ -15,6 +16,7 @@ services:
   web:
     build: ./greenshop-web
     restart: always
+    container_name: greenshop-web
     ports:
       - "80:80"
     depends_on:
