@@ -1,8 +1,8 @@
 <?php
-$host = 'GreenshopDB';
+$host = 'GreenshopDB'; 
 $dbname = 'greenshop';
-$username = 'root';
-$password = 'root';
+$username = 'greenshopuser';
+$password = 'greenshopdb';
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password);
@@ -11,4 +11,3 @@ try {
     die("Database connection failed: " . $e->getMessage());
 }
 ?>
- 
