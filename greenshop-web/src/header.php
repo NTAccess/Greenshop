@@ -7,7 +7,7 @@
 </head>
 <body>
     <header>
-        <h1><a href="index.php">greenShop powered by Jenkins et un peu de chance! =]</a></h1>
+        <h1><a href="index.php">Greenshop & Jenkins c'est fun</a></h1>
         <nav>
             <a href="index.php">Home</a>
             <a href="cart.php">Cart</a>
