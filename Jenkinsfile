@@ -52,13 +52,14 @@ pipeline {
                 }
             }
         }
-
+        
         stage('Start Web Container') {
             steps {
                 script {
-                    echo "Démarrage du nouveau conteneur web..."
+                    echo "Arrêt et suppression du conteneur web existant..."
                     sh """
-                    docker run -d --name ${WEB_CONTAINER_NAME} -p ${WEB_PORT}:80 ${IMAGE_NAME}:latest
+                    docker rm -f greenshop-web || true
+                    docker run -d --name greenshop-web -p 80:80 berzylyss/greenshop-web:latest
                     """
                 }
             }
