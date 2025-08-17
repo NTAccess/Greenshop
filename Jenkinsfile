@@ -52,7 +52,7 @@ pipeline {
                     docker rm -f greenshop-web || true
                     docker run -d \
                       --name greenshop-web \
-                      --network greenshop-net \
+                      --network greenshop_greenshop-net \
                       -p 80:80 \
                       ${IMAGE_NAME}:latest
                     """
