@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Test jenkins pour Greenshop =]</title>
+    <title>greenShop - Organic Fruits & Veggies</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
-        <h1><a href="index.php">greenShop</a></h1>
+        <h1><a href="index.php">greenShop powered by Jenkins ! =]</a></h1>
         <nav>
             <a href="index.php">Home</a>
             <a href="cart.php">Cart</a>
