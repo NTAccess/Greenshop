@@ -8,7 +8,7 @@ pipeline {
         GIT_BRANCH = 'main'
         GIT_WEB_FOLDER = 'greenshop-web'
         GIT_DB_FOLDER = 'greenshop-db'
-        SERVERS = ['192.168.10.11', '192.168.10.12', '192.168.10.13', '192.168.20.14']
+        SERVERS = "192.168.10.11,192.168.10.12,192.168.10.13,192.168.20.14"
     }
 
     stages {

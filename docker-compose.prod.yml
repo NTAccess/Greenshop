@@ -1,33 +1,27 @@
 services:
   db:
     image: mariadb:10.6
-    command: ["--character-set-server=utf8mb4","--collation-server=utf8mb4_unicode_ci"]
+    restart: always
     environment:
-      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MARIADB_DATABASE: ${MYSQL_DATABASE}
-      MARIADB_USER: ${MYSQL_USER}
-      MARIADB_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
-      - db_data:/var/lib/mysql
-      - ./greenshop-db/init.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
-    healthcheck:
-      test: ["CMD-SHELL","mysqladmin ping -h localhost -uroot -p$${MARIADB_ROOT_PASSWORD} || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 15
+      - ./greenshop-db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - greenshop-net
 
   web:
-    image: ${DOCKER_IMAGE}:${WEB_IMAGE_TAG}
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      DB_HOST: db
-      DB_NAME: ${MYSQL_DATABASE}
-      DB_USER: ${MYSQL_USER}
-      DB_PASSWORD: ${MYSQL_PASSWORD}
+    build: ./greenshop-web
+    restart: always
     ports:
       - "80:80"
+    depends_on:
+      - db
+    networks:
+      - greenshop-net
 
-volumes:
-  db_data:
+networks:
+  greenshop-net:
+    driver: bridge
