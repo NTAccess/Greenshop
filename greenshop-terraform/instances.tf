@@ -133,6 +133,8 @@ resource "aws_instance" "VM_ansible" {
               #!/bin/bash
               apt-get update -y
               apt-get install -y ansible
+              echo '${tls_private_key.admin.private_key_pem}' > /home/ubuntu/Admin-key.pem
+              chmod 600 /home/ubuntu/Admin-key.pem             
               EOF
 
   tags = {
