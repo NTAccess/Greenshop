@@ -7,9 +7,9 @@
 
   vars:
     backend_servers:
-      - { name: "docker1", address: "192.168.10.110", port: 80 }
-      - { name: "docker2", address: "192.168.10.120", port: 80 }
-      - { name: "docker3", address: "192.168.10.130", port: 80 }
+      - { name: "docker1", address: "192.168.10.11", port: 80 }
+      - { name: "docker2", address: "192.168.10.12", port: 80 }
+      - { name: "docker3", address: "192.168.10.13", port: 80 }
   tasks:
     - name: Installer HAProxy
       apt:
@@ -31,11 +31,94 @@
 
   handlers:
     - name: Restart HAProxy
+     ---
+- hosts: supervision
+  become: yes
+  tasks:
+    - name: Installer dépendances pour Docker
+      apt:
+        name: [apt-transport-https, ca-certificates, curl, software-properties-common]
+        state: present
+        update_cache: yes
+
+    - name: Ajouter clé GPG Docker
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Ajouter dépôt Docker
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Installer Docker et Docker Compose
+      apt:
+        name: [docker-ce, docker-ce-cli, containerd.io, docker-compose-plugin]
+        state: present
+        update_cache: yes
+
+    - name: Assurer que Docker est démarré
       service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Déployer la stack avec docker-compose
+      copy:
+        dest: /opt/docker-compose.yml
+        content: |
+          version: '3.9'
+          services:
+            prometheus:
+              image: prom/prometheus
+              ports:
+                - "9090:9090"
+              volumes:
+                - ./prometheus.yml:/etc/prometheus/prometheus.yml
+            cadvisor:
+              image: gcr.io/cadvisor/cadvisor:latest
+              ports:
+                - "8080:8080"
+              volumes:
+                - /:/rootfs:ro
+                - /var/run:/var/run:ro
+                - /sys:/sys:ro
+                - /var/lib/docker/:/var/lib/docker:ro
+            grafana:
+              image: grafana/grafana
+              ports:
+                - "3000:3000"
+              depends_on:
+                - prometheus
+            web:
+              image: greenshop-local-web:latest
+              ports:
+                - "80:80"
+              depends_on:
+                - db
+            db:
+              image: mysql:8
+              container_name: greenshop-db
+              environment:
+                MYSQL_ROOT_PASSWORD: secret
+                MYSQL_DATABASE: greenshop
+                MYSQL_USER: greenshopuser
+                MYSQL_PASSWORD: greenshopdb
+              volumes:
+                - db_data:/var/lib/mysql
+                - ./greenshop-db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+          volumes:
+            db_data:
+
+    - name: Lancer docker compose
+      command: docker compose -f /opt/docker compose.yml up -d
+      args:
+        chdir: /opt
+
+  service:
         name: haproxy
         state: restarted
-
-
 
 
 
@@ -76,15 +159,22 @@
 
     - name: Télécharger l’image Docker depuis Docker Hub
       community.docker.docker_image:
-        name: berzylyss/greenshopweb
-        source: pull
+        name: berzylyss/greenshop-web:latest
+        source: pull        login_password: "{{ mysql_root_password }}"
+
+    - name: Supprimer la base de test
+      mysql_db:
+        name: test
+        state: absent
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
 
 
 
     - name: Démarrer le conteneur Docker
       docker_container:
         name: mon_conteneur
-        image: berzylyss/greenshopweb
+        image: berzylyss/greenshop-web:latest
         state: started
         restart_policy: always
         ports:
@@ -95,7 +185,7 @@
         name: docker
         state: started
 
-###################################Installation de MariaDB###########################################
+###################################Installation de MySQL###########################################
 
 - name: Installer SQL sur un serveur dédié
   hosts: docker_vm_SQL
@@ -109,18 +199,6 @@
     mysql_user: "usergreen"
 
   tasks:
-    - name: Installer MySQL server
-      apt:
-        name: mysql-server
-        state: present
-        update_cache: yes
-
-    - name: Démarrer et activer le service MySQL
-      service:
-        name: mysql
-        state: started
-        enabled: true
-
     - name: Sécuriser l'installation de MySQL (définir mot de passe root)
       mysql_user:
         name: root
@@ -128,7 +206,7 @@
         password: "{{ mysql_root_password }}"
         check_implicit_admin: true
         login_unix_socket: /var/run/mysqld/mysqld.sock
-      ignore_errors: yes  # ignore si déjà défini
+      ignore_errors: yes  
 
     - name: Supprimer les utilisateurs anonymes
       mysql_user:
@@ -159,9 +237,7 @@
         login_user: root
         login_password: "{{ mysql_root_password }}"
 
-    
-
-# il accorde les droits à user
+# accorde les droits à user
     - name: Créer l'utilisateur et lui accorder les droits
       mysql_user:
         name: "{{ mysql_user }}"
@@ -192,3 +268,78 @@
       service:
         name: mysql
         state: restarted
+
+- name: Configuration monitoring
+  hosts: supervision
+  become: yes
+  tasks:
+    - name: Ajouter dépôt Docker
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Installer Docker et Docker Compose
+      apt:
+        name: [docker-ce, docker-ce-cli, containerd.io, docker-compose-plugin]
+        state: present
+        update_cache: yes
+
+    - name: Assurer que Docker est démarré
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Déployer la stack avec docker-compose
+      copy:
+        dest: /opt/docker-compose.yml
+        content: |
+          version: '3.9'
+          services:
+            prometheus:
+              image: prom/prometheus
+              ports:
+                - "9090:9090"
+              volumes:
+                - ./prometheus.yml:/etc/prometheus/prometheus.yml
+            cadvisor:
+              image: gcr.io/cadvisor/cadvisor:latest
+              ports:
+                - "8080:8080"
+              volumes:
+                - /:/rootfs:ro
+                - /var/run:/var/run:ro
+                - /sys:/sys:ro
+                - /var/lib/docker/:/var/lib/docker:ro
+            grafana:
+              image: grafana/grafana
+              ports:
+                - "3000:3000"
+              depends_on:
+                - prometheus
+            web:
+              image: greenshop-local-web:latest
+              ports:
+                - "80:80"
+              depends_on:
+                - db
+            db:
+              image: mysql:8
+              container_name: greenshop-db
+              environment:
+                MYSQL_ROOT_PASSWORD: secret
+                MYSQL_DATABASE: greenshop
+                MYSQL_USER: greenshopuser
+                MYSQL_PASSWORD: greenshopdb
+              volumes:
+                - db_data:/var/lib/mysql
+                - ./greenshop-db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+          volumes:
+            db_data:
+    - name: Lancer docker compose
+      command: docker compose -f /opt/docker compose.yml up -d
+      args:
+        chdir: /opt
+
+ 
