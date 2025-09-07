@@ -31,7 +31,8 @@ resource "aws_security_group" "bastion_sg" {
   }
 
   tags = {
-    Name = "greenshop-bastion-sg"
+    Name = "greenshop-bastion-sg" 
+
   }
 }
 

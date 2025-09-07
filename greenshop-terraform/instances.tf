@@ -2,7 +2,7 @@
 
 data "aws_ami" "ubuntu" {
   most_recent = true
-  owners      = ["099720109477"] # Canonical
+  owners      = ["099720109477"]
 
   filter {
     name   = "name"
@@ -13,12 +13,12 @@ data "aws_ami" "ubuntu" {
 # Bastion Host
 
 resource "aws_instance" "VM_bastion" {
-  ami                    = data.aws_ami.ubuntu.id
-  instance_type          = "t3.micro"
-  subnet_id              = aws_subnet.public.id
-  private_ip             = "192.168.1.10"
-  key_name               = aws_key_pair.bastion_key.key_name
-  security_groups        = [aws_security_group.bastion_sg.id]
+  ami           = data.aws_ami.ubuntu.id
+  instance_type = "t3.micro"
+  subnet_id     = aws_subnet.public.id
+  private_ip    = "192.168.1.10"
+  key_name      = aws_key_pair.bastion_key.key_name
+  security_groups = [aws_security_group.bastion_sg.id]
 
   user_data = <<-EOF
               #!/bin/bash
@@ -43,8 +43,10 @@ resource "aws_instance" "VM_Loadbalancer" {
   ami           = data.aws_ami.ubuntu.id
   instance_type = "t3.micro"
   subnet_id     = aws_subnet.public.id
-  private_ip    = "192.168.10.10"
+  private_ip    = "192.168.1.11"
   key_name      = aws_key_pair.admin_key.key_name
+
+  associate_public_ip_address = true
 
   vpc_security_group_ids = [
     aws_security_group.internal_ssh_sg.id,
@@ -60,6 +62,7 @@ resource "aws_instance" "VM_Loadbalancer" {
 }
 
 # Web Servers (Docker)
+
 resource "aws_instance" "docker_vm_web" {
   count         = 3
   ami           = data.aws_ami.ubuntu.id
@@ -81,14 +84,14 @@ resource "aws_instance" "docker_vm_web" {
               EOF
 
   tags = {
-    Name        = "servweb-${count.index+1}"
+    Name        = "greenshop-web-${count.index+1}"
     Role        = "Web"
     Project     = "Greenshop"
     Environment = "Prod"
   }
 }
 
-# Database (MySQL)
+# MySQL Database
 
 resource "aws_instance" "VM_mysql" {
   ami           = data.aws_ami.ubuntu.id
@@ -97,7 +100,7 @@ resource "aws_instance" "VM_mysql" {
   private_ip    = "192.168.20.14"
   key_name      = aws_key_pair.admin_key.key_name
 
-  vpc_security_group_ids = [aws_security_group.web_sg.id]
+  vpc_security_group_ids = [aws_security_group.db_sg.id]
 
   user_data = <<-EOF
               #!/bin/bash
@@ -120,7 +123,7 @@ resource "aws_instance" "VM_mysql" {
 resource "aws_instance" "VM_ansible" {
   ami           = data.aws_ami.ubuntu.id
   instance_type = "t3.micro"
-  subnet_id     = aws_subnet.public.id
+  subnet_id     = aws_subnet.private_app.id
   private_ip    = "192.168.10.20"
   key_name      = aws_key_pair.admin_key.key_name
 
@@ -145,7 +148,7 @@ resource "aws_instance" "VM_ansible" {
 resource "aws_instance" "VM_jenkins" {
   ami           = data.aws_ami.ubuntu.id
   instance_type = "t3.micro"
-  subnet_id     = aws_subnet.public.id
+  subnet_id     = aws_subnet.private_app.id
   private_ip    = "192.168.10.21"
   key_name      = aws_key_pair.admin_key.key_name
 
@@ -192,7 +195,6 @@ resource "aws_instance" "VM_monitoring" {
               systemctl start docker
               systemctl enable docker
               
-              # Lancement Grafana + Prometheus via Docker Compose (placeholder)
               mkdir -p /opt/monitoring
               cat > /opt/monitoring/docker-compose.yml <<EOL
               version: '3'
