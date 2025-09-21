@@ -2,12 +2,24 @@ resource "aws_network_acl" "db_acl" {
   vpc_id     = aws_vpc.main.id
   subnet_ids = [aws_subnet.private_db.id]
 
+
   ingress {
     rule_no    = 100
     protocol   = "6"
     cidr_block = "192.168.10.0/24"
     from_port  = 3306
     to_port    = 3306
+    action     = "allow"
+  }
+
+  ingress {
+    rule_no    = 110
+    protocol   = "1"          # ICMP
+    icmp_type  = -1         
+    icmp_code  = -1
+    cidr_block = "192.168.0.0/16"
+    from_port  = 0
+    to_port    = 0
     action     = "allow"
   }
 

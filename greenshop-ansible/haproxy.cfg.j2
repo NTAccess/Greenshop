@@ -19,7 +19,17 @@ frontend http_front
     bind *:80
     default_backend http_back
 
+frontend github_webhook
+    bind *:8080
+    acl from_github src -f /etc/haproxy/github_ips.lst
+    http-request deny if !from_github
+    default_backend jenkins_webhook
+
+
 backend http_back
 {% for server in backend_servers %}
     server {{ server.name }} {{ server.address }}:{{ server.port }} check
 {% endfor %}
+
+backend jenkins_webhook
+    server jenkins 192.168.10.21:8080 check

@@ -4,116 +4,135 @@ versions utilisées : Mariadb  : 10.6.21
 // Apache2: 2.4.52
 // OS Ubuntu: 22.04.5 LTS
 
-# 🛒 Greenshop - Infrastructure as Code (IaC) sur AWS
+# 🛒 Greenshop – Infrastructure as Code (IaC) sur AWS
 
 ## 📘 Description du projet
+Greenshop est une infrastructure complète déployée sur AWS dans une approche **Infrastructure as Code (IaC)**.  
+Initialement réalisé en **une semaine dans le cadre d’un hackaton**, le projet a ensuite été enrichi et finalisé pour servir de **support à la validation du Bachelor Administrateur Réseau et Sécurité Opérationnelle**.
 
-**Greenshop** est un projet complet d’infrastructure déployée sur AWS, conçu avec une approche *Infrastructure as Code* (IaC). Il combine **Terraform**, **Ansible**, **Docker** et **Jenkins** pour orchestrer le déploiement et la mise à jour d’une application web PHP connectée à une base de données **MariaDB**.
-
-Ce projet est destiné à démontrer la mise en place automatisée d’une infrastructure scalable, modulaire et maintenable.
+L’infrastructure combine **Terraform**, **Ansible**, **Docker**, **Jenkins**, **HAProxy**, **Prometheus** et **Grafana** pour automatiser le déploiement, la mise à jour et la supervision d’une application web LAMP connectée à une base de données **MariaDB**.
 
 ---
 
 ## 🧱 Architecture
+L’architecture réseau repose sur un **VPC personnalisé** et trois sous-réseaux :
 
-L’infrastructure est divisée en 3 parties principales :
+| Sous-réseau          | Usage                              |
+|----------------------|-----------------------------------|
+| `192.168.1.0/24`     | Public : Bastion, Load Balancer HAProxy, Jenkins |
+| `192.168.10.0/24`    | Privé App : 3 serveurs Docker web |
+| `192.168.20.0/24`    | Privé DB : MariaDB |
 
-### 1. **Terraform - Provisionnement AWS**
-- Création d’un **VPC personnalisé**
-- 3 sous-réseaux :
-  - `192.168.1.0/24` : Public (bastion, load balancer, Jenkins)
-  - `192.168.10.0/24` : Privé App (3 serveurs Docker web)
-  - `192.168.20.0/24` : Privé DB (MariaDB)
-- Ressources AWS :
-  - 🧩 1 Bastion (192.168.1.10)
-  - 🌐 1 Load Balancer HAProxy (192.168.1.20)
-  - 🔧 1 Jenkins (192.168.1.30)
-  - 🖥️ 3 serveurs web Docker (192.168.10.11–13)
-  - 🗄️ 1 serveur MariaDB (192.168.20.14)
+### Ressources déployées
+- 🌐 **1 Load Balancer HAProxy** (via VM EC2 publique)  
+- 🔐 **1 Bastion SSH**  
+- 🔧 **1 Jenkins** (CI/CD via webhook GitHub)  
+- 🖥 **3 serveurs web Docker** (Apache + PHP + Greenshop)  
+- 🗄 **1 MariaDB** (dump importé depuis GitHub)  
+- 📊 **1 Prometheus + Grafana** (supervision et dashboards)
 
-### 2. **Ansible - Configuration automatisée**
-- Installation et sécurisation de **MariaDB**
-- Récupération automatique du `init.sql` depuis GitHub et création de la base `greenshop`
-- Déploiement des conteneurs web :
-  - Récupération de l'image Docker (Apache + PHP + Greenshop)
-  - Lancement sur chaque serveur web, exposé sur le port 80
-- Configuration de **HAProxy** :
-  - Load balancing sur les 3 serveurs web en round-robin
+---
 
-### 3. **Jenkins - Intégration et Déploiement Continu**
-- Déclencheur sur modification du dépôt **Greenshop Web**
-- Build d’une nouvelle image Docker
-- Push automatique sur **Docker Hub**
-- Mise à jour automatique sur les 3 serveurs :
-  - Suppression de l’ancien conteneur
-  - Récupération et exécution de la nouvelle image
+## ⚙️ Déroulement et outils utilisés
+
+### 1. **Terraform – Provisionnement AWS**
+- Création automatique du VPC, sous-réseaux, Security Groups et instances EC2.
+- Intégration du Load Balancer HAProxy directement dans Terraform.
+
+### 2. **Ansible – Configuration automatisée**
+- Déploiement et sécurisation de MariaDB avec récupération automatique du `init.sql`.
+- Installation et configuration d’HAProxy (round-robin entre les trois serveurs web).
+- Provisionnement des serveurs Docker et déploiement de l’application Greenshop.
+- Installation de Prometheus et Grafana + exporters (Node Exporter sur chaque VM, mysqld-exporter sur MariaDB).
+
+### 3. **Jenkins – Intégration et déploiement continu**
+- Webhook GitHub redirigé via HAProxy pour déclencher Jenkins depuis un réseau privé.
+- Build d’une nouvelle image Docker Greenshop à chaque commit.
+- Push sur Docker Hub et mise à jour automatisée des conteneurs sur les trois serveurs web.
+
+### 4. **Prometheus & Grafana – Supervision**
+- Prometheus collecte les métriques système et applicatives.
+- Dashboards Grafana pour :
+  - Temps de réponse des serveurs web.
+  - État des conteneurs et de MariaDB.
+  - Vérification du statut des pipelines Jenkins.
 
 ---
 
 ## 🛠 Technologies utilisées
 
-| Outil      | Usage principal                          |
-|------------|-------------------------------------------|
-| Terraform  | Création des ressources AWS               |
-| Ansible    | Provisionnement & configuration système   |
-| Docker     | Conteneurisation des applications         |
-| Jenkins    | CI/CD : automatisation des déploiements   |
-| HAProxy    | Load balancing HTTP sur les serveurs web  |
-| MariaDB    | Base de données relationnelle             |
+| Outil        | Usage principal                          |
+|---------------|-----------------------------------------|
+| Terraform     | Création des ressources AWS              |
+| Ansible       | Provisionnement & configuration système  |
+| Docker        | Conteneurisation des applications        |
+| Jenkins       | CI/CD automatisé via webhook GitHub      |
+| HAProxy       | Load balancing HTTP                      |
+| Prometheus    | Collecte de métriques                    |
+| Grafana       | Visualisation et alerting                |
+| MariaDB       | Base de données relationnelle            |
+| Ubuntu 22.04  | OS pour toutes les VM                    |
 
 ---
 
 ## 🚀 Déploiement
 
-1. **Configurer les credentials AWS** :
-   Attention à bien modifié l'adresse IP public dans cidr_blocks pour accepter la votre.
-   
-   ```bash
-   export AWS_ACCESS_KEY_ID=...
-   export AWS_SECRET_ACCESS_KEY=...
-   
-3. **Terraform - Création de l’infra** :
+### Prérequis
+- Créez un compte AWS et configurez vos credentials :  
+  ```bash
+  export AWS_ACCESS_KEY_ID=...
+  export AWS_SECRET_ACCESS_KEY=...
 
-   ```bash
-   cd greenshop-terraform
-   terraform init
-   terraform apply
-   
-4. **Ansible - Configuration automatique** :
+- Modifiez le fichier Terraform pour autoriser votre IP publique dans cidr_blocks.
 
-   ```bash
-   cd greenshop-ansible
-   ansible-playbook setup.yml -i inventory.ini
+Étapes
 
-5. **Jenkins** :
+### Provisionnement AWS (Terraform)
+  Créer l'instance :
+  ```bash
+  cd greenshop-terraform
+  terraform init
+  terraform apply
+  ```
 
-    Accéder à Jenkins via l’IP publique du serveur Jenkins sur le port 8080
+### Configuration automatisée (Ansible)
+  ```bash
+  cd greenshop-ansible
+  ansible-playbook setup.yml -i inventory.ini
+  ```
 
-    Configurer un pipeline de type freestyle ou pipeline as code
+### CI/CD (Jenkins)
 
-    Webhook GitHub pour déclencher automatiquement les builds
+Accédez à Jenkins via l’IP publique du Load Balancer (port 8080 redirigé).
 
-📎 Notes complémentaires
+Configurez votre pipeline (freestyle ou pipeline-as-code).
 
-    L’application PHP utilisée est un site de vente fictif : Greenshop
+Ajoutez le webhook GitHub : http://<LOADBALANCER_PUBLIC_IP>:8080/github-webhook/.
 
-    Le init.sql est automatiquement récupéré depuis GitHub
+### Supervision (Grafana)
 
-    L’architecture permet un déploiement rapide en cas de mise à jour via Jenkins
+Grafana accessible via http://<LOADBALANCER_PUBLIC_IP>:3000.
 
-👨‍🎓 Projet pédagogique
+Dashboards préconfigurés pour les métriques système et applicatives
 
-Ce projet a été réalisé dans un cadre étudiant dans le but de :
+### 📎 Notes et Limitations techniques
 
-    Mettre en pratique l’IaC avec AWS
+- AWS Student : Pas d’accès à IAM ni RDS → authentification et DB gérées manuellement.
+- Load Balancer : Utilisation d’HAProxy sur EC2 au lieu d’un ELB managé.
+- Sécurité : Jenkins placé derrière HAProxy pour exposer uniquement les endpoints nécessaires au webhook.
+- Initial hackaton : Version rendue fonctionnelle mais sans supervision ni webhook ; ces éléments ont été ajoutés après coup pour un environnement complet.
+- Preuve pédagogique : Projet destiné à démontrer une approche DevOps/IaC et non à remplacer une architecture de production réelle.
 
-    Concevoir une infrastructure modulaire et automatisée
+### 👨‍🎓 Contexte pédagogique
 
-    Implémenter un pipeline CI/CD opérationnel
+Projet initialement réalisé en hackaton d’une semaine (4 étudiants, terminé par 2) puis amélioré et finalisé pour la validation du Bachelor.
+Objectifs pédagogiques :
 
-    Possibilité de basculer la base de données vers un conteneur Docker si besoin
+- Mettre en pratique l’IaC et les bonnes pratiques DevOps.
+- Automatiser le déploiement et la supervision d’une application LAMP.
+- Intégrer CI/CD et monitoring dans une architecture modulaire.
 
-📧 Auteur
+### 📧 Auteur
 
 Berzylyss
 GitHub: https://github.com/Berzylyss
