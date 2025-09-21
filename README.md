@@ -90,7 +90,7 @@ L’architecture réseau repose sur un **VPC personnalisé** et trois sous-rése
 
 - Modifiez le fichier Terraform pour autoriser votre IP publique dans cidr_blocks.
 
-Étapes
+# Étapes
 
 ## Provisionnement AWS (Terraform)
   Créer l'instance :
