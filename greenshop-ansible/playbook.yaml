@@ -1,10 +1,7 @@
-
 ---
-
 - name: Installer et configurer HAProxy
   hosts: VM_Loadbalancer 
   become: true
-
   vars:
     backend_servers:
       - { name: "docker1", address: "192.168.10.11", port: 80 }
@@ -31,15 +28,28 @@
 
   handlers:
     - name: Restart HAProxy
-     ---
-- hosts: supervision
-  become: yes
+      service:
+        name: haproxy
+        state: restarted
+
+# --------------------------------------------------------------------
+
+- name: Installer Docker sur les serveurs web
+  hosts: docker_vm_web
+  become: true
   tasks:
-    - name: Installer dépendances pour Docker
+    - name: Mettre à jour les paquets
       apt:
-        name: [apt-transport-https, ca-certificates, curl, software-properties-common]
-        state: present
         update_cache: yes
+
+    - name: Installer dépendances
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+        state: present
 
     - name: Ajouter clé GPG Docker
       apt_key:
@@ -49,164 +59,49 @@
     - name: Ajouter dépôt Docker
       apt_repository:
         repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
-        state: present
-
-    - name: Installer Docker et Docker Compose
-      apt:
-        name: [docker-ce, docker-ce-cli, containerd.io, docker-compose-plugin]
-        state: present
-        update_cache: yes
-
-    - name: Assurer que Docker est démarré
-      service:
-        name: docker
-        state: started
-        enabled: yes
-
-    - name: Déployer la stack avec docker-compose
-      copy:
-        dest: /opt/docker-compose.yml
-        content: |
-          version: '3.9'
-          services:
-            prometheus:
-              image: prom/prometheus
-              ports:
-                - "9090:9090"
-              volumes:
-                - ./prometheus.yml:/etc/prometheus/prometheus.yml
-            cadvisor:
-              image: gcr.io/cadvisor/cadvisor:latest
-              ports:
-                - "8080:8080"
-              volumes:
-                - /:/rootfs:ro
-                - /var/run:/var/run:ro
-                - /sys:/sys:ro
-                - /var/lib/docker/:/var/lib/docker:ro
-            grafana:
-              image: grafana/grafana
-              ports:
-                - "3000:3000"
-              depends_on:
-                - prometheus
-            web:
-              image: greenshop-local-web:latest
-              ports:
-                - "80:80"
-              depends_on:
-                - db
-            db:
-              image: mysql:8
-              container_name: greenshop-db
-              environment:
-                MYSQL_ROOT_PASSWORD: secret
-                MYSQL_DATABASE: greenshop
-                MYSQL_USER: greenshopuser
-                MYSQL_PASSWORD: greenshopdb
-              volumes:
-                - db_data:/var/lib/mysql
-                - ./greenshop-db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-
-          volumes:
-            db_data:
-
-    - name: Lancer docker compose
-      command: docker compose -f /opt/docker compose.yml up -d
-      args:
-        chdir: /opt
-
-  service:
-        name: haproxy
-        state: restarted
-
-
-
-########################################Installation de Docker sur les serveurs#########################################
-- name: Installer Docker sur les serveurs
-  hosts: docker_vm_web
-  become: true
-  tasks:
-    - name: Mettre à jour la liste des paquets
-      ansible.builtin.apt:
-        update_cache: yes
-
-    - name: Installer les dépendances
-      ansible.builtin.apt:
-        name:
-          - apt-transport-https
-          - ca-certificates
-          - curl
-          - software-properties-common
-        state: present
-
-    - name: Ajouter la clé GPG officielle de Docker
-      ansible.builtin.apt_key:
-        url: https://download.docker.com/linux/ubuntu/gpg
-        state: present
-
-    - name: Ajouter le dépôt APT Docker
-      ansible.builtin.apt_repository:
-        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
 
     - name: Installer Docker
-      ansible.builtin.apt:
+      apt:
         name:
           - docker-ce
           - docker-ce-cli
           - containerd.io
         state: latest
 
-    - name: Télécharger l’image Docker depuis Docker Hub
-      community.docker.docker_image:
-        name: berzylyss/greenshop-web:latest
-        source: pull        login_password: "{{ mysql_root_password }}"
+    - name: S'assurer que Docker est démarré
+      service:
+        name: docker
+        state: started
+        enabled: true
 
-    - name: Supprimer la base de test
-      mysql_db:
-        name: test
-        state: absent
-        login_user: root
-        login_password: "{{ mysql_root_password }}"
-
-
-
-    - name: Démarrer le conteneur Docker
+    - name: Lancer conteneur web
       docker_container:
-        name: mon_conteneur
+        name: greenshop-web
         image: berzylyss/greenshop-web:latest
         state: started
         restart_policy: always
         ports:
-          - "8080:80"  # Expose le port 80 du conteneur sur le port 8080 de l’hôte
+          - "8080:80"
 
-    - name: S'assurer que Docker est démarré
-      ansible.builtin.service:
-        name: docker
-        state: started
+# --------------------------------------------------------------------
 
-###################################Installation de MySQL###########################################
-
-- name: Installer SQL sur un serveur dédié
+- name: Installer et configurer MySQL
   hosts: docker_vm_SQL
   become: true
-
   vars_files:
     - secrets.yaml
-
   vars:
-    mysql_database: "greenshop"
-    mysql_user: "usergreen"
-
+    mysql_database: greenshop
+    mysql_user: usergreen
   tasks:
-    - name: Sécuriser l'installation de MySQL (définir mot de passe root)
+    - name: Définir mot de passe root
       mysql_user:
         name: root
         host: localhost
         password: "{{ mysql_root_password }}"
         check_implicit_admin: true
         login_unix_socket: /var/run/mysqld/mysqld.sock
-      ignore_errors: yes  
+      ignore_errors: yes
 
     - name: Supprimer les utilisateurs anonymes
       mysql_user:
@@ -216,13 +111,13 @@
         login_user: root
         login_password: "{{ mysql_root_password }}"
 
-    - name: Télécharger le fichier init.sql depuis GitHub
+    - name: Télécharger init.sql
       get_url:
-        url: "https://raw.githubusercontent.com/Berzylyss/Greenshop/main/greenshop-db/init.sql"
-        dest: "/tmp/init.sql"
+        url: https://raw.githubusercontent.com/Berzylyss/Greenshop/main/greenshop-db/init.sql
+        dest: /tmp/init.sql
         mode: '0644'
 
-    - name: Importer le fichier init.sql dans la base de données
+    - name: Importer la base
       mysql_db:
         name: "{{ mysql_database }}"
         state: import
@@ -230,15 +125,7 @@
         login_user: root
         login_password: "{{ mysql_root_password }}"
 
-    - name: Supprimer la base de test
-      mysql_db:
-        name: test
-        state: absent
-        login_user: root
-        login_password: "{{ mysql_root_password }}"
-
-# accorde les droits à user
-    - name: Créer l'utilisateur et lui accorder les droits
+    - name: Créer utilisateur applicatif
       mysql_user:
         name: "{{ mysql_user }}"
         password: "{{ mysql_user_password }}"
@@ -248,7 +135,7 @@
         login_user: root
         login_password: "{{ mysql_root_password }}"
 
-    - name: Modifier bind-address pour autoriser connexions externes
+    - name: Autoriser connexions externes
       lineinfile:
         path: /etc/mysql/mysql.conf.d/50-server.cnf
         regexp: '^bind-address'
@@ -256,41 +143,29 @@
         backup: yes
       notify: Redémarrer MySQL
 
-    - name: Ouvrir le port 3306 dans le firewall (UFW)
-      ufw:
-        rule: allow
-        port: '3306'
-        proto: tcp
-      when: ansible_facts.os_family == 'Ubuntu'
-
   handlers:
     - name: Redémarrer MySQL
       service:
         name: mysql
         state: restarted
 
-- name: Configuration monitoring
+# --------------------------------------------------------------------
+
+- name: Monitoring avec Docker Compose
   hosts: supervision
   become: yes
   tasks:
-    - name: Ajouter dépôt Docker
-      apt_repository:
-        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
-        state: present
-
-    - name: Installer Docker et Docker Compose
+    - name: Installer Docker et Compose
       apt:
-        name: [docker-ce, docker-ce-cli, containerd.io, docker-compose-plugin]
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
         state: present
         update_cache: yes
 
-    - name: Assurer que Docker est démarré
-      service:
-        name: docker
-        state: started
-        enabled: yes
-
-    - name: Déployer la stack avec docker-compose
+    - name: Déployer la stack
       copy:
         dest: /opt/docker-compose.yml
         content: |
@@ -298,48 +173,15 @@
           services:
             prometheus:
               image: prom/prometheus
-              ports:
-                - "9090:9090"
-              volumes:
-                - ./prometheus.yml:/etc/prometheus/prometheus.yml
+              ports: ["9090:9090"]
             cadvisor:
               image: gcr.io/cadvisor/cadvisor:latest
-              ports:
-                - "8080:8080"
-              volumes:
-                - /:/rootfs:ro
-                - /var/run:/var/run:ro
-                - /sys:/sys:ro
-                - /var/lib/docker/:/var/lib/docker:ro
+              ports: ["8080:8080"]
             grafana:
               image: grafana/grafana
-              ports:
-                - "3000:3000"
-              depends_on:
-                - prometheus
-            web:
-              image: greenshop-local-web:latest
-              ports:
-                - "80:80"
-              depends_on:
-                - db
-            db:
-              image: mysql:8
-              container_name: greenshop-db
-              environment:
-                MYSQL_ROOT_PASSWORD: secret
-                MYSQL_DATABASE: greenshop
-                MYSQL_USER: greenshopuser
-                MYSQL_PASSWORD: greenshopdb
-              volumes:
-                - db_data:/var/lib/mysql
-                - ./greenshop-db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-
-          volumes:
-            db_data:
-    - name: Lancer docker compose
-      command: docker compose -f /opt/docker compose.yml up -d
+              ports: ["3000:3000"]
+              depends_on: [prometheus]
+    - name: Lancer Docker Compose
+      command: docker compose -f /opt/docker-compose.yml up -d
       args:
         chdir: /opt
-
- 
