@@ -137,7 +137,8 @@ Objectifs pédagogiques :
 - Automatiser le déploiement et la supervision d’une application LAMP.
 - Intégrer CI/CD et monitoring dans une architecture modulaire.
 
-## 📧 Auteur
+## 📧 Auteur(e)s
 
 Berzylyss
 GitHub: https://github.com/Berzylyss
+NTAccess: https://github.com/NTAccess/
