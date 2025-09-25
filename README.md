@@ -14,7 +14,7 @@
 Greenshop est une infrastructure complète déployée sur AWS selon une approche **Infrastructure as Code (IaC)**.  
 Initialement réalisé en **une semaine lors d’un hackathon**, le projet a été enrichi et finalisé pour servir de **support à la validation du Bachelor Administrateur Réseau et Sécurité Opérationnelle**.
 
-L’infrastructure combine **Terraform**, **Ansible**, **Docker**, **Jenkins**, **HAProxy**, **Prometheus** et **Grafana** pour automatiser le déploiement, la mise à jour et la supervision d’une application web **LAMP** connectée à une base de données **MySQL**.
+L’infrastructure combine **Terraform**, **Ansible**, **Docker**, **Jenkins**, **HAProxy**, **Prometheus** et **Grafana** pour automatiser le déploiement, la mise à jour et la supervision d’une application web connectée à une base de données **MySQL**.
 
 ---
 
