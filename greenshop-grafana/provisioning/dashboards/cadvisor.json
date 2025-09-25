@@ -1,0 +1,29 @@
+{
+  "title": "Docker Containers Overview",
+  "panels": [
+    {
+      "type": "graph",
+      "title": "Container CPU Usage",
+      "targets": [
+        {
+          "expr": "sum(rate(container_cpu_usage_seconds_total{name!=\"\",container_label_com_docker_swarm_service_name!=\"\"}[5m])) by (container_label_com_docker_swarm_service_name)",
+          "legendFormat": "{{container_label_com_docker_swarm_service_name}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Container Memory Usage",
+      "targets": [
+        {
+          "expr": "sum(container_memory_usage_bytes{name!=\"\",container_label_com_docker_swarm_service_name!=\"\"}) by (container_label_com_docker_swarm_service_name)",
+          "legendFormat": "{{container_label_com_docker_swarm_service_name}}",
+          "refId": "B"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 27,
+  "version": 1
+}

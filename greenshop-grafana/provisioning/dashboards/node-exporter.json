@@ -1,0 +1,29 @@
+{
+  "title": "Node Exporter Metrics",
+  "panels": [
+    {
+      "type": "graph",
+      "title": "CPU Usage",
+      "targets": [
+        {
+          "expr": "100 - (avg by(instance) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+          "legendFormat": "{{instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Memory Usage",
+      "targets": [
+        {
+          "expr": "node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes",
+          "legendFormat": "{{instance}}",
+          "refId": "B"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 27,
+  "version": 1
+}

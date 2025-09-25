@@ -1,0 +1,24 @@
+# === Docker / Compose ===
+*.log
+*.pid
+*.seed
+*.swp
+
+# Exclure les fichiers d'environnement (secrets)
+.env
+.env.*
+!env.example
+
+# Volumes ou données persistantes
+db_data/
+grafana-storage/
+
+# Exclure les fichiers générés localement
+*.bak
+*.tmp
+
+# OS / IDE files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
